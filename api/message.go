@@ -23,6 +23,7 @@ type MessageDatabase interface {
 	GetMessageByID(id uint) (*model.Message, error)
 	DeleteMessagesByUser(userID uint) error
 	DeleteMessagesByApplication(applicationID uint) error
+	UpdateMessage(message *model.Message) error
 	CreateMessage(message *model.Message) error
 	GetApplicationByToken(token string) (*model.Application, error)
 }
@@ -31,7 +32,7 @@ var timeNow = time.Now
 
 // Notifier notifies when a new message was created.
 type Notifier interface {
-	Notify(userID uint, message *model.MessageExternal)
+	Notify(userID uint, action string, message *model.MessageExternal)
 }
 
 // The MessageAPI provides handlers for managing messages.
@@ -315,8 +316,80 @@ func (a *MessageAPI) DeleteMessage(ctx *gin.Context) {
 		}
 		if app != nil && app.UserID == auth.GetUserID(ctx) {
 			successOrAbort(ctx, 500, a.DB.DeleteMessageByID(id))
+			a.Notifier.Notify(auth.GetUserID(ctx), "DELETE", toExternalMessage(msg))
 		} else {
 			ctx.AbortWithError(404, errors.New("message does not exist"))
+		}
+	})
+}
+
+// UpdateMessage updates a message with an id.
+// swagger:operation PUT /message/{id} message updateMessage
+//
+// Updates a message with an id.
+//
+// ---
+// produces: [application/json]
+// security: [clientTokenHeader: [], clientTokenQuery: [], basicAuth: []]
+// parameters:
+// - name: id
+//   in: path
+//   description: the message id
+//   required: true
+//   type: integer
+// - name: body
+//   in: body
+//   description: the message
+//   required: true
+//   schema:
+//     $ref: "#/definitions/Message"
+// responses:
+//   200:
+//     description: Ok
+//   400:
+//     description: Bad Request
+//     schema:
+//         $ref: "#/definitions/Error"
+//   401:
+//     description: Unauthorized
+//     schema:
+//         $ref: "#/definitions/Error"
+//   403:
+//     description: Forbidden
+//     schema:
+//         $ref: "#/definitions/Error"
+//   404:
+//     description: Not Found
+//     schema:
+//         $ref: "#/definitions/Error"
+func (a *MessageAPI) UpdateMessage(ctx *gin.Context) {
+	withID(ctx, "id", func(id uint) {
+		msg, err := a.DB.GetMessageByID(id)
+		if success := successOrAbort(ctx, 500, err); !success {
+			return
+		}
+		if msg == nil {
+			ctx.AbortWithError(404, errors.New("message does not exist"))
+			return
+		}
+		msgExternal := *toExternalMessage(msg)
+		message := model.MessageExternal{}
+		if err := ctx.Bind(&message); err == nil {
+			app, err := a.DB.GetApplicationByID(msg.ApplicationID)
+			if success := successOrAbort(ctx, 500, err); !success {
+				return
+			}
+			if app != nil && app.UserID == auth.GetUserID(ctx) {
+				updatedMsg := updateMessageToExternalMessage(&msgExternal, &message)
+				msgInternal := toInternalMessage(updatedMsg)
+				if success := successOrAbort(ctx, 500, a.DB.UpdateMessage(msgInternal)); !success {
+					return
+				}
+				a.Notifier.Notify(auth.GetUserID(ctx), "UPDATE", toExternalMessage(msgInternal))
+				ctx.JSON(200, toExternalMessage(msgInternal))
+			} else {
+				ctx.AbortWithError(404, errors.New("message does not exist"))
+			}
 		}
 	})
 }
@@ -371,7 +444,7 @@ func (a *MessageAPI) CreateMessage(ctx *gin.Context) {
 		if success := successOrAbort(ctx, 500, a.DB.CreateMessage(msgInternal)); !success {
 			return
 		}
-		a.Notifier.Notify(auth.GetUserID(ctx), toExternalMessage(msgInternal))
+		a.Notifier.Notify(auth.GetUserID(ctx), "CREATE", toExternalMessage(msgInternal))
 		ctx.JSON(200, toExternalMessage(msgInternal))
 	}
 }
@@ -404,6 +477,20 @@ func toExternalMessage(msg *model.Message) *model.MessageExternal {
 		res.Extras = make(map[string]interface{})
 		json.Unmarshal(msg.Extras, &res.Extras)
 	}
+	return res
+}
+
+func updateMessageToExternalMessage(msg *model.MessageExternal, updatedMsg *model.MessageExternal) *model.MessageExternal {
+	res := &model.MessageExternal{
+		ID:				msg.ID,
+		ApplicationID:	msg.ApplicationID,
+		Message:		updatedMsg.Message,
+		Title:			updatedMsg.Title,
+		Priority:		updatedMsg.Priority,
+		Date:			timeNow(),
+		Extras:			msg.Extras,
+	}
+
 	return res
 }
 

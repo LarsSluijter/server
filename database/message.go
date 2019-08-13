@@ -93,3 +93,7 @@ func (d *GormDatabase) DeleteMessagesByUser(userID uint) error {
 	}
 	return nil
 }
+
+func (d *GormDatabase) UpdateMessage(message *model.Message) error {
+	return d.DB.Model(&message).Updates(message).Error
+}

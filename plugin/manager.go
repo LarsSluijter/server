@@ -40,7 +40,7 @@ type Database interface {
 
 // Notifier notifies when a new message was created.
 type Notifier interface {
-	Notify(userID uint, message *model.MessageExternal)
+	Notify(userID uint, action string, message *model.MessageExternal)
 }
 
 // Manager is an encapsulating layer for plugins and manages all plugins and its instances.
@@ -79,7 +79,7 @@ func NewManager(db Database, directory string, mux *gin.RouterGroup, notifier No
 			}
 			db.CreateMessage(internalMsg)
 			message.Message.ID = internalMsg.ID
-			notifier.Notify(message.UserID, &message.Message)
+			notifier.Notify(message.UserID, "CREATE", &message.Message)
 		}
 	}()
 

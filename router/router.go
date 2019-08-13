@@ -151,6 +151,8 @@ func Create(db *database.GormDatabase, vInfo *model.VersionInfo, conf *config.Co
 			message.DELETE("", messageHandler.DeleteMessages)
 
 			message.DELETE("/:id", messageHandler.DeleteMessage)
+
+			message.PUT("/:id", messageHandler.UpdateMessage)
 		}
 
 		clientAuth.GET("/stream", streamHandler.Handle)

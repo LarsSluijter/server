@@ -18,7 +18,7 @@ import * as Notifications from './snack/browserNotification';
 import {registerReactions} from './reactions';
 
 const defaultDevConfig = {
-    url: 'http://localhost:80/',
+    url: 'http://localhost:8008/',
 };
 
 const {port, hostname, protocol, pathname} = window.location;
