@@ -32,7 +32,7 @@ var timeNow = time.Now
 
 // Notifier notifies when a new message was created.
 type Notifier interface {
-	Notify(userID uint, action string, message *model.MessageExternal)
+	Notify(userID uint, message *model.MessageExternal, action ...string)
 }
 
 // The MessageAPI provides handlers for managing messages.
@@ -316,7 +316,7 @@ func (a *MessageAPI) DeleteMessage(ctx *gin.Context) {
 		}
 		if app != nil && app.UserID == auth.GetUserID(ctx) {
 			successOrAbort(ctx, 500, a.DB.DeleteMessageByID(id))
-			a.Notifier.Notify(auth.GetUserID(ctx), "DELETE", toExternalMessage(msg))
+			a.Notifier.Notify(auth.GetUserID(ctx), toExternalMessage(msg), "DELETE")
 		} else {
 			ctx.AbortWithError(404, errors.New("message does not exist"))
 		}
@@ -385,7 +385,7 @@ func (a *MessageAPI) UpdateMessage(ctx *gin.Context) {
 				if success := successOrAbort(ctx, 500, a.DB.UpdateMessage(msgInternal)); !success {
 					return
 				}
-				a.Notifier.Notify(auth.GetUserID(ctx), "UPDATE", toExternalMessage(msgInternal))
+				a.Notifier.Notify(auth.GetUserID(ctx), toExternalMessage(msgInternal), "UPDATE")
 				ctx.JSON(200, toExternalMessage(msgInternal))
 			} else {
 				ctx.AbortWithError(404, errors.New("message does not exist"))
@@ -444,7 +444,7 @@ func (a *MessageAPI) CreateMessage(ctx *gin.Context) {
 		if success := successOrAbort(ctx, 500, a.DB.CreateMessage(msgInternal)); !success {
 			return
 		}
-		a.Notifier.Notify(auth.GetUserID(ctx), "CREATE", toExternalMessage(msgInternal))
+		a.Notifier.Notify(auth.GetUserID(ctx), toExternalMessage(msgInternal))
 		ctx.JSON(200, toExternalMessage(msgInternal))
 	}
 }

@@ -67,9 +67,16 @@ func (a *API) NotifyDeletedClient(userID uint, token string) {
 }
 
 // Notify notifies the clients with the given userID that a new messages was created.
-func (a *API) Notify(userID uint, action string, msg *model.MessageExternal) {
+func (a *API) Notify(userID uint, msg *model.MessageExternal, action ...string) {
+	act := "CREATE"
+	if len(action) > 1 {
+		return
+	} else if len(action) == 1 {
+		act = action[0]
+	}
+	
 	notification := &model.MessageNotification{
-		Action: action,
+		Action: act,
 		Message: msg,
 	}
 	
